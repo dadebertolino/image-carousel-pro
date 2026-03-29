@@ -3,7 +3,12 @@
 
     $(document).ready(function() {
         
-        // Media uploader
+        // Inizializza color picker WordPress
+        $('.icp-color-picker').wpColorPicker();
+        
+        // =============================
+        // Media uploader — Immagini
+        // =============================
         $('#icp-add-image').on('click', function(e) {
             e.preventDefault();
             
@@ -27,17 +32,9 @@
                     },
                     success: function(response) {
                         if (response.success) {
-                            var html = '<div class="icp-image-item" data-id="' + response.data.id + '">' +
-                                '<img src="' + response.data.url + '" alt="">' +
-                                '<div class="icp-image-actions">' +
-                                '<span class="dashicons dashicons-move icp-drag-handle"></span>' +
-                                '<button type="button" class="icp-delete-image" data-id="' + response.data.id + '">' +
-                                '<span class="dashicons dashicons-trash"></span>' +
-                                '</button></div>' +
-                                '<div class="icp-image-caption">' +
-                                '<input type="text" class="icp-caption-input" data-id="' + response.data.id + '" placeholder="Didascalia...">' +
-                                '</div></div>';
-                            $('#icp-images-list').append(html);
+                            $('#icp-images-list').append(
+                                buildItemHTML(response.data.id, response.data.url, 'image', '')
+                            );
                         } else {
                             alert('Errore: ' + response.data);
                         }
@@ -48,11 +45,82 @@
             frame.open();
         });
         
-        // Delete image
+        // =============================
+        // Media uploader — Video
+        // =============================
+        $('#icp-add-video').on('click', function(e) {
+            e.preventDefault();
+            
+            var frame = wp.media({
+                title: 'Seleziona Video',
+                button: { text: 'Usa questo video' },
+                multiple: false,
+                library: { type: 'video' }
+            });
+            
+            frame.on('select', function() {
+                var attachment = frame.state().get('selection').first().toJSON();
+                
+                $.ajax({
+                    url: icpAjax.url,
+                    type: 'POST',
+                    data: {
+                        action: 'icp_upload_video',
+                        nonce: icpAjax.nonce,
+                        attachment_id: attachment.id
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $('#icp-images-list').append(
+                                buildItemHTML(response.data.id, response.data.url, 'video', response.data.filename)
+                            );
+                        } else {
+                            alert('Errore: ' + response.data);
+                        }
+                    }
+                });
+            });
+            
+            frame.open();
+        });
+        
+        // =============================
+        // Builder HTML per item griglia
+        // =============================
+        function buildItemHTML(id, url, type, filename) {
+            var mediaHTML;
+            
+            if (type === 'video') {
+                mediaHTML = '<div class="icp-video-thumb">' +
+                    '<span class="dashicons dashicons-video-alt3"></span>' +
+                    '<span class="icp-video-filename">' + (filename || 'video') + '</span>' +
+                    '</div>';
+            } else {
+                mediaHTML = '<img src="' + url + '" alt="">';
+            }
+            
+            return '<div class="icp-image-item ' + (type === 'video' ? 'icp-video-item' : '') + '" data-id="' + id + '">' +
+                mediaHTML +
+                '<div class="icp-image-actions">' +
+                    '<span class="dashicons dashicons-move icp-drag-handle"></span>' +
+                    '<button type="button" class="icp-delete-image" data-id="' + id + '">' +
+                        '<span class="dashicons dashicons-trash"></span>' +
+                    '</button>' +
+                '</div>' +
+                '<div class="icp-image-meta">' +
+                    '<input type="text" class="icp-caption-input" data-id="' + id + '" placeholder="Didascalia...">' +
+                    '<input type="text" class="icp-tags-input" data-id="' + id + '" placeholder="Tag (es: natura, mare, montagna)">' +
+                '</div>' +
+            '</div>';
+        }
+        
+        // =============================
+        // Elimina elemento
+        // =============================
         $(document).on('click', '.icp-delete-image', function(e) {
             e.preventDefault();
             
-            if (!confirm('Eliminare questa immagine?')) return;
+            if (!confirm('Eliminare questo elemento?')) return;
             
             var $item = $(this).closest('.icp-image-item');
             var id = $(this).data('id');
@@ -73,7 +141,9 @@
             });
         });
         
-        // Save caption on blur
+        // =============================
+        // Salva didascalia (debounced)
+        // =============================
         var captionTimeout;
         $(document).on('input', '.icp-caption-input', function() {
             var $input = $(this);
@@ -95,7 +165,33 @@
             }, 500);
         });
         
-        // Sortable
+        // =============================
+        // Salva tag (debounced)
+        // =============================
+        var tagsTimeout;
+        $(document).on('input', '.icp-tags-input', function() {
+            var $input = $(this);
+            var id = $input.data('id');
+            var tags = $input.val();
+            
+            clearTimeout(tagsTimeout);
+            tagsTimeout = setTimeout(function() {
+                $.ajax({
+                    url: icpAjax.url,
+                    type: 'POST',
+                    data: {
+                        action: 'icp_save_tags',
+                        nonce: icpAjax.nonce,
+                        image_id: id,
+                        tags: tags
+                    }
+                });
+            }, 500);
+        });
+        
+        // =============================
+        // Drag & drop riordino
+        // =============================
         $('#icp-images-list').sortable({
             handle: '.icp-drag-handle',
             placeholder: 'icp-image-item ui-sortable-placeholder',
