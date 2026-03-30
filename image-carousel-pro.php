@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Image Carousel Pro
  * Description: Carosello immagini/video con rotazione automatica e zoom centrale
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: Davide "The Prof." Bertolino
  * Author URI: https://www.davidebertolino.it
  * Text Domain: image-carousel-pro
@@ -38,7 +38,10 @@ class ImageCarouselPro {
         'image_fit'               => 'cover',
         'mode'                  => 'carousel',
         'effect'                => 'fade',
-        'minimal'               => 0
+        'minimal'               => 0,
+        'ken_burns'             => 0,
+        'parallax'              => 0,
+        'tilt_3d'               => 0
     ];
     
     public function __construct() {
@@ -77,8 +80,8 @@ class ImageCarouselPro {
         if ($hook !== 'toplevel_page_image-carousel-pro') return;
         wp_enqueue_media();
         wp_enqueue_style('wp-color-picker');
-        wp_enqueue_style('icp-admin', plugins_url('css/admin.css', __FILE__), [], '1.4.0');
-        wp_enqueue_script('icp-admin', plugins_url('js/admin.js', __FILE__), ['jquery', 'jquery-ui-sortable', 'wp-color-picker'], '1.4.0', true);
+        wp_enqueue_style('icp-admin', plugins_url('css/admin.css', __FILE__), [], '1.5.0');
+        wp_enqueue_script('icp-admin', plugins_url('js/admin.js', __FILE__), ['jquery', 'jquery-ui-sortable', 'wp-color-picker'], '1.5.0', true);
         wp_localize_script('icp-admin', 'icpAjax', [
             'url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('icp_nonce')
@@ -86,8 +89,8 @@ class ImageCarouselPro {
     }
     
     public function frontend_scripts() {
-        wp_enqueue_style('icp-frontend', plugins_url('css/frontend.css', __FILE__), [], '1.4.0');
-        wp_enqueue_script('icp-frontend', plugins_url('js/frontend.js', __FILE__), [], '1.4.0', true);
+        wp_enqueue_style('icp-frontend', plugins_url('css/frontend.css', __FILE__), [], '1.5.0');
+        wp_enqueue_script('icp-frontend', plugins_url('js/frontend.js', __FILE__), [], '1.5.0', true);
     }
     
     public function admin_page() {
@@ -116,7 +119,10 @@ class ImageCarouselPro {
                 'image_fit'               => in_array($_POST['image_fit'], ['cover', 'contain', 'fill']) ? $_POST['image_fit'] : 'cover',
                 'mode'                  => in_array($_POST['mode'], ['carousel', 'single']) ? $_POST['mode'] : 'carousel',
                 'effect'                => in_array($_POST['effect'], ['fade', 'slide', 'flip', 'zoom']) ? $_POST['effect'] : 'fade',
-                'minimal'               => isset($_POST['minimal']) ? 1 : 0
+                'minimal'               => isset($_POST['minimal']) ? 1 : 0,
+                'ken_burns'             => isset($_POST['ken_burns']) ? 1 : 0,
+                'parallax'              => isset($_POST['parallax']) ? 1 : 0,
+                'tilt_3d'               => isset($_POST['tilt_3d']) ? 1 : 0
             ];
             update_option('icp_settings', $settings);
             echo '<div class="notice notice-success"><p>Impostazioni salvate!</p></div>';
@@ -267,6 +273,33 @@ class ImageCarouselPro {
                                     </label>
                                 </td>
                             </tr>
+                            <tr>
+                                <th>Effetto Ken Burns</th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="ken_burns" value="1" <?php checked($settings['ken_burns'], 1); ?>>
+                                        Zoom e pan lento sulla slide attiva
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Effetto Parallax</th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="parallax" value="1" <?php checked($settings['parallax'], 1); ?>>
+                                        Le immagini si muovono con profondità durante lo scroll
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Effetto 3D Tilt</th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="tilt_3d" value="1" <?php checked($settings['tilt_3d'], 1); ?>>
+                                        Rotazione 3D della slide al passaggio del mouse
+                                    </label>
+                                </td>
+                            </tr>
                         </table>
                         <p><input type="submit" name="icp_save_settings" class="button button-primary" value="Salva Impostazioni"></p>
                     </form>
@@ -342,6 +375,9 @@ class ImageCarouselPro {
                             <tr><td><code>show_shadow</code></td><td>0 | 1</td><td><?php echo esc_html($settings['show_shadow']); ?></td></tr>
                             <tr><td><code>image_fit</code></td><td>cover | contain | fill</td><td><?php echo esc_html($settings['image_fit']); ?></td></tr>
                             <tr><td><code>minimal</code></td><td>0 | 1</td><td><?php echo esc_html($settings['minimal']); ?></td></tr>
+                            <tr><td><code>ken_burns</code></td><td>0 | 1</td><td><?php echo esc_html($settings['ken_burns']); ?></td></tr>
+                            <tr><td><code>parallax</code></td><td>0 | 1</td><td><?php echo esc_html($settings['parallax']); ?></td></tr>
+                            <tr><td><code>tilt_3d</code></td><td>0 | 1</td><td><?php echo esc_html($settings['tilt_3d']); ?></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -496,7 +532,10 @@ class ImageCarouselPro {
             'image_fit'               => $settings['image_fit'],
             'mode'                  => $settings['mode'],
             'effect'                => $settings['effect'],
-            'minimal'               => $settings['minimal']
+            'minimal'               => $settings['minimal'],
+            'ken_burns'             => $settings['ken_burns'],
+            'parallax'              => $settings['parallax'],
+            'tilt_3d'               => $settings['tilt_3d']
         ], $atts);
         
         $mode = in_array($atts['mode'], ['carousel', 'single']) ? $atts['mode'] : 'carousel';
@@ -531,10 +570,10 @@ class ImageCarouselPro {
         ?>
         <div class="icp-carousel-wrapper" style="<?php echo esc_attr($wrapper_style); ?>">
             <?php if ($show_filters): ?>
-            <div class="icp-filter-bar">
-                <button class="icp-filter-btn icp-filter-active" data-filter="*">Tutti</button>
+            <div class="icp-filter-bar" role="toolbar" aria-label="Filtri categoria">
+                <button class="icp-filter-btn icp-filter-active" data-filter="*" aria-pressed="true">Tutti</button>
                 <?php foreach ($all_tags as $tag): ?>
-                <button class="icp-filter-btn" data-filter="<?php echo esc_attr($tag); ?>"><?php echo esc_html(ucfirst($tag)); ?></button>
+                <button class="icp-filter-btn" data-filter="<?php echo esc_attr($tag); ?>" aria-pressed="false"><?php echo esc_html(ucfirst($tag)); ?></button>
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
@@ -563,23 +602,34 @@ class ImageCarouselPro {
                  data-container-border-radius="<?php echo esc_attr($atts['container_border_radius']); ?>"
                  data-container-padding="<?php echo esc_attr($atts['container_padding']); ?>"
                  data-show-shadow="<?php echo !empty($atts['show_shadow']) && $atts['show_shadow'] !== '0' ? '1' : '0'; ?>"
-                 data-image-fit="<?php echo esc_attr($atts['image_fit']); ?>">
-                <div class="icp-carousel-track">
+                 data-image-fit="<?php echo esc_attr($atts['image_fit']); ?>"
+                 data-ken-burns="<?php echo !empty($atts['ken_burns']) && $atts['ken_burns'] !== '0' ? '1' : '0'; ?>"
+                 data-parallax="<?php echo !empty($atts['parallax']) && $atts['parallax'] !== '0' ? '1' : '0'; ?>"
+                 data-tilt-3d="<?php echo !empty($atts['tilt_3d']) && $atts['tilt_3d'] !== '0' ? '1' : '0'; ?>"
+                 role="region"
+                 aria-roledescription="carousel"
+                 aria-label="Carosello immagini">
+                <div class="icp-carousel-track" aria-live="polite">
+                    <?php $slide_number = 0; ?>
                     <?php foreach ($images as $index => $image): 
                         $slide_tags = $this->parse_tags(isset($image['tags']) ? $image['tags'] : '');
                         $is_video = isset($image['type']) && $image['type'] === 'video';
+                        $slide_number++;
                     ?>
                     <div class="icp-carousel-slide <?php echo $index === 0 ? 'icp-active' : ''; ?> <?php echo $is_video ? 'icp-slide-video' : ''; ?>" 
                          data-full="<?php echo esc_url($image['url']); ?>"
                          data-tags="<?php echo esc_attr(implode(',', $slide_tags)); ?>"
-                         <?php if ($is_video): ?>data-type="video"<?php endif; ?>>
+                         <?php if ($is_video): ?>data-type="video"<?php endif; ?>
+                         role="group"
+                         aria-roledescription="slide"
+                         aria-label="<?php echo esc_attr('Slide ' . $slide_number . ' di ' . $original_count); ?>">
                         <?php if ($is_video): ?>
-                            <video class="icp-slide-video-el" muted loop playsinline preload="metadata">
-                                <source src="<?php echo esc_url($image['url']); ?>" type="<?php echo esc_attr($image['mime']); ?>">
+                            <video class="icp-slide-video-el" muted loop playsinline preload="none">
+                                <source data-src="<?php echo esc_url($image['url']); ?>" type="<?php echo esc_attr($image['mime']); ?>">
                             </video>
                             <div class="icp-video-play-overlay"><span class="icp-play-icon">&#9654;</span></div>
                         <?php else: ?>
-                            <img src="<?php echo esc_url($image['url']); ?>" alt="<?php echo esc_attr(isset($image['caption']) ? $image['caption'] : ''); ?>" loading="lazy">
+                            <img data-src="<?php echo esc_url($image['url']); ?>" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="<?php echo esc_attr(isset($image['caption']) ? $image['caption'] : ''); ?>">
                         <?php endif; ?>
                         <?php if (!empty($image['caption'])): ?>
                         <div class="icp-slide-caption"><?php echo esc_html($image['caption']); ?></div>
@@ -592,20 +642,20 @@ class ImageCarouselPro {
                     <button class="icp-nav-fullscreen" aria-label="Schermo intero">&#x26F6;</button>
                     <button class="icp-nav-next" aria-label="Successivo">&#8250;</button>
                 </div>
-                <div class="icp-carousel-dots">
+                <div class="icp-carousel-dots" role="tablist" aria-label="Seleziona slide">
                     <?php for ($i = 0; $i < $original_count; $i++): ?>
-                    <button class="icp-dot <?php echo $i === 0 ? 'icp-active' : ''; ?>" data-index="<?php echo $i; ?>"></button>
+                    <button class="icp-dot <?php echo $i === 0 ? 'icp-active' : ''; ?>" data-index="<?php echo $i; ?>" role="tab" aria-selected="<?php echo $i === 0 ? 'true' : 'false'; ?>" aria-label="<?php echo esc_attr('Vai alla slide ' . ($i + 1)); ?>"></button>
                     <?php endfor; ?>
                 </div>
             </div>
             
-            <div class="icp-lightbox" id="<?php echo esc_attr($lightbox_id); ?>">
+            <div class="icp-lightbox" id="<?php echo esc_attr($lightbox_id); ?>" role="dialog" aria-label="Visualizzazione immagine" aria-modal="true">
                 <button class="icp-lightbox-close" aria-label="Chiudi">&times;</button>
                 <img src="" alt="" class="icp-lightbox-img">
                 <div class="icp-lightbox-caption"></div>
             </div>
             
-            <div class="icp-fullscreen" id="<?php echo esc_attr($fullscreen_id); ?>">
+            <div class="icp-fullscreen" id="<?php echo esc_attr($fullscreen_id); ?>" role="dialog" aria-label="Visualizzazione a schermo intero" aria-modal="true">
                 <button class="icp-fullscreen-close" aria-label="Chiudi">&times;</button>
                 <img src="" alt="" class="icp-fullscreen-img">
                 <div class="icp-fullscreen-caption"></div>

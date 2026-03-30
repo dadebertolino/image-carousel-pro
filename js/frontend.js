@@ -36,6 +36,25 @@
                 carousel.style.setProperty('--icp-image-fit', imageFit);
             }
             
+            // Ken Burns
+            if (carousel.dataset.kenBurns === '1') {
+                carousel.classList.add('icp-ken-burns');
+                var kbInterval = parseInt(carousel.dataset.interval) || 3000;
+                carousel.style.setProperty('--icp-interval', kbInterval + 'ms');
+            }
+            
+            // Parallax
+            if (carousel.dataset.parallax === '1') {
+                carousel.classList.add('icp-parallax');
+                initParallax(carousel);
+            }
+            
+            // 3D Tilt
+            if (carousel.dataset.tilt3d === '1') {
+                carousel.classList.add('icp-tilt-3d');
+                initTilt3d(carousel);
+            }
+            
             var mode = carousel.dataset.mode || 'carousel';
             if (mode === 'single') { initSingle(carousel); } else { initCarousel(carousel); }
         });
@@ -125,7 +144,11 @@
         
         function updateActiveStates() {
             Array.from(track.querySelectorAll('.icp-carousel-slide')).forEach(function(s, i) { s.classList.toggle('icp-active', i === 2); });
-            dots.forEach(function(d, i) { d.classList.toggle('icp-active', i === currentIndex); });
+            dots.forEach(function(d, i) { 
+                d.classList.toggle('icp-active', i === currentIndex);
+                d.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
+            });
+            preloadNearby(track, 2, 2);
         }
         
         function next() {
@@ -234,6 +257,7 @@
                 dotsContainer.appendChild(d);
             }
             dots = Array.from(dotsContainer.querySelectorAll('.icp-dot'));
+            preloadNearby(track, currentIndex, 2);
             handleActiveVideo();
         }
         
@@ -256,10 +280,15 @@
             else if (effect === 'zoom') exitClass = 'icp-exit-zoom';
             if (exitClass) oldSlide.classList.add(exitClass);
             oldSlide.classList.remove('icp-active');
+            oldSlide.setAttribute('aria-hidden', 'true');
             newSlide.classList.add('icp-active');
+            newSlide.setAttribute('aria-hidden', 'false');
             currentIndex = newIndex;
-            dots.forEach(function(d, i) { d.classList.toggle('icp-active', i === currentIndex); });
-            setTimeout(function() { if (exitClass) oldSlide.classList.remove(exitClass); isTransitioning = false; handleActiveVideo(); }, transition);
+            dots.forEach(function(d, i) { 
+                d.classList.toggle('icp-active', i === currentIndex);
+                d.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
+            });
+            setTimeout(function() { if (exitClass) oldSlide.classList.remove(exitClass); isTransitioning = false; preloadNearby(track, currentIndex, 2); handleActiveVideo(); }, transition);
         }
         
         function next() { transitionTo((currentIndex + 1) % totalSlides); }
@@ -298,12 +327,157 @@
     // =========================================================
     // SHARED HELPERS
     // =========================================================
+    
+    /**
+     * Parallax: trasla le immagini in base alla posizione di scroll.
+     * L'immagine è 120% altezza (via CSS), il JS la muove su/giù.
+     */
+    function initParallax(carousel) {
+        var ticking = false;
+        
+        function updateParallax() {
+            var rect = carousel.getBoundingClientRect();
+            var winH = window.innerHeight;
+            
+            // Calcola quanto il carousel è visibile (-1 a 1)
+            var center = rect.top + rect.height / 2;
+            var ratio = (center - winH / 2) / (winH / 2);
+            ratio = Math.max(-1, Math.min(1, ratio));
+            
+            // Trasla le immagini (max ±10% dell'extra 20%)
+            var offset = ratio * -10;
+            
+            var media = carousel.querySelectorAll('.icp-carousel-slide img, .icp-carousel-slide .icp-slide-video-el');
+            media.forEach(function(el) {
+                el.style.transform = 'translateY(' + offset + '%)';
+            });
+            
+            ticking = false;
+        }
+        
+        window.addEventListener('scroll', function() {
+            if (!ticking) {
+                requestAnimationFrame(updateParallax);
+                ticking = true;
+            }
+        }, { passive: true });
+        
+        // Esegui subito per posizione iniziale
+        updateParallax();
+    }
+    
+    /**
+     * 3D Tilt: rotazione sottile della slide in base alla posizione del mouse.
+     * Max ±8 gradi, reset smooth al mouseleave.
+     */
+    function initTilt3d(carousel) {
+        var maxTilt = 8;
+        
+        carousel.addEventListener('mousemove', function(e) {
+            var slide = e.target.closest('.icp-carousel-slide');
+            if (!slide) return;
+            
+            var rect = slide.getBoundingClientRect();
+            var x = (e.clientX - rect.left) / rect.width;   // 0–1
+            var y = (e.clientY - rect.top) / rect.height;    // 0–1
+            
+            var rotateY = (x - 0.5) * maxTilt * 2;   // -8 a +8
+            var rotateX = (0.5 - y) * maxTilt * 2;    // -8 a +8
+            
+            slide.style.transform = 'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
+        });
+        
+        carousel.addEventListener('mouseleave', function() {
+            carousel.querySelectorAll('.icp-carousel-slide').forEach(function(s) {
+                s.style.transform = '';
+            });
+        });
+        
+        // Reset anche quando il mouse esce da una singola slide
+        carousel.addEventListener('mouseout', function(e) {
+            var slide = e.target.closest('.icp-carousel-slide');
+            if (slide && !slide.contains(e.relatedTarget)) {
+                slide.style.transform = '';
+            }
+        });
+    }
+    
+    /**
+     * Preload intelligente + skeleton loading.
+     * Carica src delle immagini/video entro ±range dall'attiva.
+     * Aggiunge classe icp-skeleton finché l'immagine non è pronta.
+     */
+    function preloadNearby(track, activeIndex, range) {
+        var slides = Array.from(track.querySelectorAll('.icp-carousel-slide'));
+        var total = slides.length;
+        if (total === 0) return;
+        
+        // Imposta skeleton su tutte le slide non ancora caricate
+        slides.forEach(function(s) {
+            if (!s.classList.contains('icp-loaded')) {
+                s.classList.add('icp-skeleton');
+            }
+        });
+        
+        for (var offset = -range; offset <= range; offset++) {
+            var idx = (activeIndex + offset + total) % total;
+            var slide = slides[idx];
+            if (!slide || slide.classList.contains('icp-loaded')) continue;
+            
+            // Immagini
+            var img = slide.querySelector('img[data-src]');
+            if (img && img.getAttribute('data-src')) {
+                (function(s, i) {
+                    i.onload = function() {
+                        s.classList.remove('icp-skeleton');
+                        s.classList.add('icp-loaded');
+                    };
+                    i.src = i.getAttribute('data-src');
+                    i.removeAttribute('data-src');
+                    // Se già in cache
+                    if (i.complete) {
+                        s.classList.remove('icp-skeleton');
+                        s.classList.add('icp-loaded');
+                    }
+                })(slide, img);
+            }
+            
+            // Video
+            var source = slide.querySelector('video source[data-src]');
+            if (source && source.getAttribute('data-src')) {
+                source.src = source.getAttribute('data-src');
+                source.removeAttribute('data-src');
+                var video = source.closest('video');
+                if (video) {
+                    video.preload = 'metadata';
+                    video.load();
+                    (function(s, v) {
+                        v.addEventListener('loadedmetadata', function() {
+                            s.classList.remove('icp-skeleton');
+                            s.classList.add('icp-loaded');
+                        }, { once: true });
+                    })(slide, video);
+                }
+            }
+            
+            // Slide senza media (solo caption)
+            if (!img && !source) {
+                slide.classList.remove('icp-skeleton');
+                slide.classList.add('icp-loaded');
+            }
+        }
+    }
+    
     function setupFilters(wrapper, carousel, originalSlides, rebuildFn) {
         var bar = wrapper.querySelector('.icp-filter-bar'); if (!bar) return;
         bar.addEventListener('click', function(e) {
             var btn = e.target.closest('.icp-filter-btn'); if (!btn) return;
-            bar.querySelectorAll('.icp-filter-btn').forEach(function(b) { b.classList.remove('icp-filter-active'); });
+            bar.querySelectorAll('.icp-filter-btn').forEach(function(b) { 
+                b.classList.remove('icp-filter-active');
+                b.setAttribute('aria-pressed', 'false');
+            });
             btn.classList.add('icp-filter-active');
+            btn.setAttribute('aria-pressed', 'true');
             var filter = btn.dataset.filter;
             carousel.classList.add('icp-filtering');
             setTimeout(function() {

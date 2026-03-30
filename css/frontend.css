@@ -142,6 +142,93 @@
 .icp-mode-single[data-effect="zoom"] .icp-carousel-slide.icp-exit-zoom { transform: scale(1.5); opacity: 0; }
 
 /* ===================== */
+/* Skeleton loading      */
+/* ===================== */
+.icp-carousel-slide {
+    background: #e0e0e0;
+}
+
+.icp-carousel-slide.icp-skeleton::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background-size: 200% 100%;
+    animation: icp-shimmer 1.5s infinite ease-in-out;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+.icp-carousel-slide.icp-skeleton img,
+.icp-carousel-slide.icp-skeleton video {
+    opacity: 0;
+}
+
+.icp-carousel-slide.icp-loaded::before {
+    display: none;
+}
+
+.icp-carousel-slide.icp-loaded img,
+.icp-carousel-slide.icp-loaded video {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+@keyframes icp-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ===================== */
+/* Ken Burns effect      */
+/* ===================== */
+.icp-ken-burns .icp-carousel-slide img,
+.icp-ken-burns .icp-carousel-slide .icp-slide-video-el {
+    transition: transform 0s ease;
+}
+
+.icp-ken-burns .icp-carousel-slide.icp-active img,
+.icp-ken-burns .icp-carousel-slide.icp-active .icp-slide-video-el {
+    animation: icp-kenburns var(--icp-interval, 3000ms) ease-in-out forwards;
+}
+
+@keyframes icp-kenburns {
+    0% {
+        transform: scale(1) translate(0, 0);
+    }
+    100% {
+        transform: scale(1.15) translate(-2%, -1%);
+    }
+}
+
+/* ===================== */
+/* Parallax effect       */
+/* ===================== */
+.icp-parallax .icp-carousel-slide {
+    overflow: hidden;
+}
+
+.icp-parallax .icp-carousel-slide img,
+.icp-parallax .icp-carousel-slide .icp-slide-video-el {
+    height: 120%;
+    width: 100%;
+    object-fit: var(--icp-image-fit, cover);
+    will-change: transform;
+}
+
+/* ===================== */
+/* 3D Tilt effect        */
+/* ===================== */
+.icp-tilt-3d {
+    perspective: 800px;
+}
+
+.icp-tilt-3d .icp-carousel-slide {
+    transform-style: preserve-3d;
+    transition: transform 0.15s ease-out;
+}
+
+/* ===================== */
 /* Shared slide styles   */
 /* ===================== */
 .icp-carousel-slide img {
