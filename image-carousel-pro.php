@@ -54,6 +54,8 @@ class ImageCarouselPro {
         add_action('wp_ajax_icp_reorder_images', [$this, 'handle_reorder']);
         add_action('wp_ajax_icp_save_caption', [$this, 'handle_save_caption']);
         add_action('wp_ajax_icp_save_tags', [$this, 'handle_save_tags']);
+        add_action('wp_ajax_icp_crop_image', [$this, 'handle_crop_image']);
+        add_action('wp_ajax_icp_preview', [$this, 'handle_preview']);
         add_shortcode('image_carousel', [$this, 'render_shortcode']);
         
         register_activation_hook(__FILE__, [$this, 'activate']);
@@ -80,8 +82,9 @@ class ImageCarouselPro {
         if ($hook !== 'toplevel_page_image-carousel-pro') return;
         wp_enqueue_media();
         wp_enqueue_style('wp-color-picker');
+        wp_enqueue_style('jcrop');
         wp_enqueue_style('icp-admin', plugins_url('css/admin.css', __FILE__), [], '1.5.0');
-        wp_enqueue_script('icp-admin', plugins_url('js/admin.js', __FILE__), ['jquery', 'jquery-ui-sortable', 'wp-color-picker'], '1.5.0', true);
+        wp_enqueue_script('icp-admin', plugins_url('js/admin.js', __FILE__), ['jquery', 'jquery-ui-sortable', 'wp-color-picker', 'jcrop'], '1.5.0', true);
         wp_localize_script('icp-admin', 'icpAjax', [
             'url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('icp_nonce')
@@ -327,6 +330,11 @@ class ImageCarouselPro {
                             <?php endif; ?>
                             <div class="icp-image-actions">
                                 <span class="dashicons dashicons-move icp-drag-handle"></span>
+                                <?php if (!$is_video): ?>
+                                <button type="button" class="icp-crop-image" data-id="<?php echo esc_attr($image['id']); ?>" data-url="<?php echo esc_url($image['url']); ?>">
+                                    <span class="dashicons dashicons-image-crop"></span>
+                                </button>
+                                <?php endif; ?>
                                 <button type="button" class="icp-delete-image" data-id="<?php echo esc_attr($image['id']); ?>">
                                     <span class="dashicons dashicons-trash"></span>
                                 </button>
@@ -380,6 +388,36 @@ class ImageCarouselPro {
                             <tr><td><code>tilt_3d</code></td><td>0 | 1</td><td><?php echo esc_html($settings['tilt_3d']); ?></td></tr>
                         </tbody>
                     </table>
+                </div>
+                
+                <div class="icp-section">
+                    <h2>Anteprima</h2>
+                    <p>
+                        <button type="button" id="icp-refresh-preview" class="button button-secondary">Aggiorna anteprima</button>
+                        <span id="icp-preview-status" class="icp-preview-status"></span>
+                    </p>
+                    <div class="icp-preview-container">
+                        <iframe id="icp-preview-frame" class="icp-preview-frame" src="about:blank"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Crop -->
+        <div id="icp-crop-modal" class="icp-crop-modal" style="display:none;">
+            <div class="icp-crop-modal-content">
+                <div class="icp-crop-modal-header">
+                    <h3>Ritaglia immagine</h3>
+                    <button type="button" id="icp-crop-close" class="icp-crop-close">&times;</button>
+                </div>
+                <div class="icp-crop-modal-body">
+                    <div id="icp-crop-area" class="icp-crop-area">
+                        <img id="icp-crop-image" src="" alt="">
+                    </div>
+                </div>
+                <div class="icp-crop-modal-footer">
+                    <button type="button" id="icp-crop-save" class="button button-primary">Applica ritaglio</button>
+                    <button type="button" id="icp-crop-cancel" class="button">Annulla</button>
                 </div>
             </div>
         </div>
@@ -479,6 +517,111 @@ class ImageCarouselPro {
         foreach ($images as &$image) { if ($image['id'] === $id) { $image['tags'] = $tags; break; } }
         update_option('icp_images', $images);
         wp_send_json_success();
+    }
+    
+    /**
+     * Ritaglia un'immagine del carousel con le coordinate fornite dal client.
+     * Usa wp_get_image_editor (GD/Imagick) per il crop.
+     * Sovrascrive il file originale e aggiorna l'URL con cache-bust.
+     */
+    public function handle_crop_image() {
+        check_ajax_referer('icp_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_send_json_error('Permessi insufficienti');
+        
+        $id = sanitize_text_field($_POST['image_id']);
+        $x = intval($_POST['crop_x']);
+        $y = intval($_POST['crop_y']);
+        $w = intval($_POST['crop_w']);
+        $h = intval($_POST['crop_h']);
+        
+        if ($w <= 0 || $h <= 0) {
+            wp_send_json_error('Dimensioni ritaglio non valide');
+        }
+        
+        $images = get_option('icp_images', []);
+        $target = null;
+        $target_key = null;
+        
+        foreach ($images as $key => $image) {
+            if ($image['id'] === $id) {
+                $target = $image;
+                $target_key = $key;
+                break;
+            }
+        }
+        
+        if (!$target || !file_exists($target['file'])) {
+            wp_send_json_error('Immagine non trovata');
+        }
+        
+        // Usa l'editor immagini di WordPress (GD o Imagick)
+        $editor = wp_get_image_editor($target['file']);
+        if (is_wp_error($editor)) {
+            wp_send_json_error('Errore apertura immagine: ' . $editor->get_error_message());
+        }
+        
+        $crop_result = $editor->crop($x, $y, $w, $h);
+        if (is_wp_error($crop_result)) {
+            wp_send_json_error('Errore ritaglio: ' . $crop_result->get_error_message());
+        }
+        
+        // Salva sovrascrivendo il file originale
+        $save_result = $editor->save($target['file']);
+        if (is_wp_error($save_result)) {
+            wp_send_json_error('Errore salvataggio: ' . $save_result->get_error_message());
+        }
+        
+        // Aggiorna URL con cache-bust per forzare il reload
+        $new_url = preg_replace('/\?.*$/', '', $target['url']);
+        $new_url .= '?v=' . time();
+        $images[$target_key]['url'] = $new_url;
+        update_option('icp_images', $images);
+        
+        wp_send_json_success([
+            'id' => $id,
+            'url' => $new_url
+        ]);
+    }
+    
+    /**
+     * Renderizza una pagina HTML autonoma con il carousel per la preview admin.
+     * Caricata in un iframe nella pagina impostazioni.
+     */
+    public function handle_preview() {
+        // Il nonce arriva via GET dall'iframe
+        if (!isset($_REQUEST['nonce']) || !wp_verify_nonce($_REQUEST['nonce'], 'icp_nonce')) {
+            wp_die('Nonce non valido');
+        }
+        if (!current_user_can('manage_options')) wp_die('Non autorizzato');
+        
+        $css_url = plugins_url('css/frontend.css', __FILE__);
+        $js_url = plugins_url('js/frontend.js', __FILE__);
+        
+        // Renderizza lo shortcode con le impostazioni correnti
+        $shortcode_output = $this->render_shortcode([]);
+        
+        ?><!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="<?php echo esc_url($css_url); ?>?v=<?php echo time(); ?>">
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: #f0f0f1;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <?php echo $shortcode_output; ?>
+    <script src="<?php echo esc_url($js_url); ?>?v=<?php echo time(); ?>"></script>
+</body>
+</html>
+        <?php
+        wp_die();
     }
     
     // === Helpers ===

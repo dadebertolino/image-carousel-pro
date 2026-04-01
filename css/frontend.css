@@ -219,13 +219,8 @@
 /* ===================== */
 /* 3D Tilt effect        */
 /* ===================== */
-.icp-tilt-3d {
-    perspective: 800px;
-}
-
 .icp-tilt-3d .icp-carousel-slide {
     transform-style: preserve-3d;
-    transition: transform 0.15s ease-out;
 }
 
 /* ===================== */

@@ -371,34 +371,48 @@
      * Max ±8 gradi, reset smooth al mouseleave.
      */
     function initTilt3d(carousel) {
-        var maxTilt = 8;
+        var maxTilt = 10;
+        var track = carousel.querySelector('.icp-carousel-track');
         
+        console.log('[ICP] 3D Tilt inizializzato', track);
+        
+        // Usa event delegation sul carousel (non sul track, che viene ricostruito internamente)
         carousel.addEventListener('mousemove', function(e) {
             var slide = e.target.closest('.icp-carousel-slide');
             if (!slide) return;
             
             var rect = slide.getBoundingClientRect();
-            var x = (e.clientX - rect.left) / rect.width;   // 0–1
-            var y = (e.clientY - rect.top) / rect.height;    // 0–1
+            if (rect.width === 0 || rect.height === 0) return;
             
-            var rotateY = (x - 0.5) * maxTilt * 2;   // -8 a +8
-            var rotateX = (0.5 - y) * maxTilt * 2;    // -8 a +8
+            var x = (e.clientX - rect.left) / rect.width;
+            var y = (e.clientY - rect.top) / rect.height;
             
-            slide.style.transform = 'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
+            var rotateY = ((x - 0.5) * maxTilt * 2).toFixed(2);
+            var rotateX = ((0.5 - y) * maxTilt * 2).toFixed(2);
+            
+            // Preserva lo scale della slide attiva
+            var isActive = slide.classList.contains('icp-active');
+            var zoom = isActive ? (parseFloat(carousel.dataset.zoom) || 1.3) : 1;
+            
+            slide.style.cssText += '; transform: perspective(600px) scale(' + zoom + ') rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg) !important; transition: transform 0.1s ease-out !important;';
         });
+        
+        function resetSlide(slide) {
+            if (!slide) return;
+            var isActive = slide.classList.contains('icp-active');
+            var zoom = isActive ? (parseFloat(carousel.dataset.zoom) || 1.3) : 1;
+            
+            if (isActive) {
+                slide.style.cssText += '; transform: scale(' + zoom + ') !important; transition: transform 0.4s ease-out !important;';
+            } else {
+                slide.style.transform = '';
+                slide.style.transition = '';
+            }
+        }
         
         carousel.addEventListener('mouseleave', function() {
-            carousel.querySelectorAll('.icp-carousel-slide').forEach(function(s) {
-                s.style.transform = '';
-            });
-        });
-        
-        // Reset anche quando il mouse esce da una singola slide
-        carousel.addEventListener('mouseout', function(e) {
-            var slide = e.target.closest('.icp-carousel-slide');
-            if (slide && !slide.contains(e.relatedTarget)) {
-                slide.style.transform = '';
-            }
+            var allSlides = carousel.querySelectorAll('.icp-carousel-slide');
+            allSlides.forEach(resetSlide);
         });
     }
     

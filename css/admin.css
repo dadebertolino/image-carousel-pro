@@ -176,3 +176,118 @@
 .form-table select {
     min-width: 200px;
 }
+
+/* Preview live */
+.icp-preview-container {
+    margin-top: 12px;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #f0f0f1;
+}
+
+.icp-preview-frame {
+    width: 100%;
+    min-height: 350px;
+    border: none;
+    display: block;
+}
+
+.icp-preview-status {
+    margin-left: 10px;
+    font-style: italic;
+    color: #666;
+    font-size: 13px;
+}
+
+/* Bottone crop */
+.icp-crop-image {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.icp-crop-image .dashicons {
+    color: #fff;
+}
+
+.icp-crop-image:hover .dashicons {
+    color: #72aee6;
+}
+
+/* Modal Crop */
+.icp-crop-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 160000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icp-crop-modal-content {
+    background: #fff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.icp-crop-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.icp-crop-modal-header h3 {
+    margin: 0;
+}
+
+.icp-crop-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    line-height: 1;
+}
+
+.icp-crop-close:hover {
+    color: #d63638;
+}
+
+.icp-crop-modal-body {
+    padding: 20px;
+    overflow: auto;
+    flex: 1;
+    text-align: center;
+}
+
+.icp-crop-area {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.icp-crop-area img {
+    max-width: 100%;
+    max-height: 60vh;
+    display: block;
+}
+
+.icp-crop-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
