@@ -2,10 +2,14 @@
 /**
  * Plugin Name: Image Carousel Pro
  * Description: Carosello immagini/video con rotazione automatica e zoom centrale
- * Version: 1.5.0
- * Author: Davide "The Prof." Bertolino
+ * Version: 1.5.2
+ * Author: Davide Bertolino
  * Author URI: https://www.davidebertolino.it
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: image-carousel-pro
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
  */
 
 if (!defined('ABSPATH')) exit;
