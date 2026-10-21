@@ -1,0 +1,44 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Smoke test
+        run: php tests/smoke-test.php
+
+      - name: Create ZIP
+        run: |
+          mkdir -p build/image-carousel-pro
+          rsync -a ./ build/image-carousel-pro/ \
+            --exclude '.git' --exclude '.github' --exclude '.gitignore' \
+            --exclude '.DS_Store' --exclude 'build' --exclude 'tests'
+          cd build
+          zip -qr "image-carousel-pro-${GITHUB_REF_NAME}.zip" image-carousel-pro
+          unzip -l "image-carousel-pro-${GITHUB_REF_NAME}.zip" | grep -q 'image-carousel-pro/image-carousel-pro.php'
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: build/image-carousel-pro-${{ github.ref_name }}.zip
+          generate_release_notes: true
