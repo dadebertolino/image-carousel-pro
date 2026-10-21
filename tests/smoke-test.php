@@ -50,13 +50,16 @@ require dirname(__DIR__) . '/image-carousel-pro.php';
 
 $classe = new ReflectionClass('ImageCarouselPro');
 $plugin = $classe->newInstanceWithoutConstructor();
-foreach ($classe->getProperties() as $p) {
-    if ($p->isDefault() && !$p->isStatic() && $p->hasDefaultValue()) {
-        if (PHP_VERSION_ID < 80100) {
-            $p->setAccessible(true);
-        }
-        $p->setValue($plugin, $p->getDefaultValue());
+// Valori predefiniti delle proprieta' (il costruttore registra hook e non serve qui).
+foreach ($classe->getDefaultProperties() as $nome => $valore) {
+    $p = $classe->getProperty($nome);
+    if ($p->isStatic()) {
+        continue;
     }
+    if (PHP_VERSION_ID < 80100) {
+        $p->setAccessible(true);
+    }
+    $p->setValue($plugin, $valore);
 }
 
 $casi = array(
